@@ -3,9 +3,6 @@ from io import BytesIO
 
 import pytest
 
-if using_pydantic := bool(find_spec('pydantic')):
-    from pydantic import BaseModel
-
 from squarecloud import Client, Endpoint, File
 from squarecloud.app import Application
 from squarecloud.data import (
@@ -380,23 +377,3 @@ class TestRequestListeners:
         expected_result = await client.current_app_integration(app.id)
         assert isinstance(expected_result, str)
         assert isinstance(expected_response, Response)
-
-    @pytest.mark.skipif('not using_pydantic', reason='pydantic not installed')
-    @_clear_listener_on_rerun(endpoint=Endpoint.app_status())
-    async def test_pydantic_cast(self, client: Client, app: Application):
-        class Person(BaseModel):
-            name: str
-            age: int
-
-        class Car(BaseModel):
-            year: int
-
-        @client.on_request(Endpoint.app_status(), force_raise=True)
-        async def capture_status(extra: Person | Car | dict):
-            assert isinstance(extra, Car) or isinstance(extra, Person)
-            return extra
-
-        await client.app_status(
-            app_id=app.id, extra={'name': 'Jhon', 'age': 18}
-        )
-        await client.app_status(app_id=app.id, extra={'year': 1969})

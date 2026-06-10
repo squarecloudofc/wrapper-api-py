@@ -7,7 +7,7 @@ client = square.Client(api_key='API KEY')
 
 async def example() -> None:
     snapshot = await client.snapshot('application_id')
-    print(snapshot.url)  # https://squarecloud.app/dashboard/backup/f.zip
+    print(snapshot.url)
 
 
 asyncio.run(example())

@@ -44,7 +44,7 @@ ConfigFile.from_dict(...)
 path: str
 display_name: str
 main: str
-memory: int >= 100
+memory: int >= 256
 version: Literal['recommended', 'latest']
 
 [OPTIONAL] parameters

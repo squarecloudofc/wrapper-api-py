@@ -4,12 +4,8 @@ import types
 from typing import Any, Union
 
 from .. import data, errors
-from .._internal.constants import USING_PYDANTIC
 from ..http import Endpoint
 from . import Listener, ListenerManager
-
-if USING_PYDANTIC:
-    import pydantic
 
 ListenerDataTypes = Union[
     data.AppData,
@@ -75,19 +71,12 @@ class CaptureListenerManager(ListenerManager):
         :return: The result of the call function
         """
 
-        def filter_annotations(annotations: list[Any]) -> Any:
-            for item in annotations:
-                if issubclass(item, pydantic.BaseModel):
-                    yield item
-
         if not (listener := self.get_listener(endpoint)):
             return None
         logger = logging.getLogger('squarecloud')
         kwargs: dict[str, Any] = {}
         call_params = listener.callback_params
         call_extra_param: inspect.Parameter | None = call_params.get('extra')
-        extra_annotation: Any | None = None
-
         if 'before' in call_params.keys():
             kwargs['before'] = before
         if 'after' in call_params.keys():
@@ -101,40 +90,6 @@ class CaptureListenerManager(ListenerManager):
         )
         if call_extra_param:
             info_msg += f'\nEXTRA: {extra_value}'
-            extra_annotation = call_extra_param.annotation
-
-        if (
-            call_extra_param is not None
-            and extra_annotation is not None
-            and extra_annotation != call_extra_param.empty
-        ):
-            cast_result = self.cast_to_pydantic_model(
-                extra_annotation, extra_value
-            )
-            if not cast_result:
-                msg: str = (
-                    f'a "{extra_annotation.__name__}"'
-                    if not isinstance(extra_annotation, types.UnionType)
-                    else str(
-                        [
-                            x.__name__
-                            for x in filter_annotations(
-                                list(extra_annotation.__args__)
-                            )
-                        ]
-                    )
-                )
-                logger.warning(
-                    'Failed on cast extra argument in '
-                    f'"{listener.callback.__name__}" into '
-                    f'{msg} pydantic model.\n'
-                    f'{info_msg}\n'
-                    f'The listener has been skipped.',
-                    extra={'type': 'listener'},
-                )
-                return None
-            kwargs['extra'] = cast_result
-
         is_coro: bool = inspect.iscoroutinefunction(listener.callback)
         try:
             if is_coro:

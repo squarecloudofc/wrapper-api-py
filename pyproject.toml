@@ -1,46 +1,48 @@
-[tool.poetry]
-name = 'squarecloud-api'
-version = '3.8.1'
-description = 'SquareCloud API wrapper'
-authors = ['Robert Nogueira <robertlucasnogueira@gmail.com>']
+[project]
+name = "squarecloud-api"
+version = "4.0.0"
+description = "SquareCloud API wrapper"
+authors = [
+    {name = "Robert Nogueira",email = "robertlucasnogueira@gmail.com"}
+]
 repository = 'https://github.com/squarecloudofc/wrapper-api-py'
-documentation = 'https://docs.squarecloud.app/sdks/py'
-license = 'MIT License'
-readme = 'README.md'
-packages = [{ include = "squarecloud" }]
+documentation = 'https://docs.squarecloud.app/en/sdks/py/client'
+license = {text = "MIT License"}
+readme = "README.md"
+requires-python = ">=3.13,<3.15"
 
+dependencies = [
+    "aiohttp~=3.13.2",
+    "typing-extensions~=4.15.0",
+]
 
-[tool.poetry.dependencies]
-python = '^3.13'
-typing-extensions = "^4.15.0"
-aiohttp = "^3.13.2"
-pydantic = "^2.12.5"
-
-[tool.poetry.extras]
-pydantic = ["pydantic"]
-
-[tool.poetry.group.dev.dependencies]
-isort = "^7.0.0"
-pre-commit = "^4.5.0"
-pytest = "^9.0.2"
-pytest-asyncio = "^1.3.0"
-pytest-cov = "^6.0.0"
-pytest-rerunfailures = "^16.1"
-ruff = "^0.14.9"
-taskipy = "^1.14.1"
-bandit = {extras = ["toml"], version = "^1.9.2"}
-cz-conventional-gitmoji = "^0.7.0"
-memory-profiler = "^0.61.0"
-requests = "^2.32.5"
-python-dotenv = "^1.2.1"
-safety = "^3.7.0"
-vulture = "^2.14"
-mypy-extensions = "^1.1.0"
-commitizen = "^4.10.1"
+[tool.poetry]
+packages = [{ from= "src", include = "squarecloud" }]
 
 [build-system]
-requires = ['poetry-core']
-build-backend = 'poetry.core.masonry.api'
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "bandit[toml]~=1.9.2",
+    "commitizen~=4.10.1",
+    "cz-conventional-gitmoji~=0.7.0",
+    "isort~=7.0.0",
+    "memory-profiler~=0.61.0",
+    "mypy-extensions~=1.1.0",
+    "pre-commit~=4.5.0",
+    "pytest~=9.0.2",
+    "pytest-asyncio~=1.3.0",
+    "pytest-cov~=7.1.0",
+    "pytest-rerunfailures~=16.1",
+    "python-dotenv~=1.2.1",
+    "requests~=2.32.5",
+    "ruff~=0.14.9",
+    "safety~=3.7.0",
+    "taskipy~=1.14.1",
+    "vulture~=2.14",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = 'auto'

@@ -9,7 +9,6 @@ from typing_extensions import deprecated
 
 from squarecloud import errors
 
-from ._internal.decorators import validate
 from .data import (
     AppData,
     DeployData,
@@ -41,7 +40,6 @@ class AppCache:
     __slots__ = (
         '_status',
         '_logs',
-        '_backup',
         '_app_data',
         '_snapshot'
     )
@@ -57,7 +55,6 @@ class AppCache:
         """
         self._status: StatusData | None = None
         self._logs: LogsData | None = None
-        self._backup: Snapshot | None = None
         self._snapshot: Snapshot | None = None
         self._app_data: AppData | None = None
 
@@ -84,18 +81,6 @@ class AppCache:
         return self._logs
 
     @property
-    @deprecated("this property will be removed in future versions, use the 'snapshot' property instead")
-    def backup(self) -> Snapshot:
-        """
-        The backup method is a property that returns the cached Backup of
-        the application.
-
-        :return: The value of the _backup attribute
-        :rtype: Backup
-        """
-        return self._backup
-
-    @property
     def snapshot(self) -> Snapshot:
         """
         The snapshot method is a property that returns the cached Snapshot of
@@ -119,7 +104,7 @@ class AppCache:
 
     def clear(self) -> None:
         """
-        The clear method is used to clear the status, logs, backup and data
+        The clear method is used to clear the status, logs, snapshot and data
         variables.
 
         :param self: Refer to the class instance
@@ -127,7 +112,6 @@ class AppCache:
         """
         self._status = None
         self._logs = None
-        self._backup = None
         self._app_data = None
         self._snapshot = None
 
@@ -136,7 +120,7 @@ class AppCache:
         The update method is used to update the data of a given instance.
         It takes in an arbitrary number of arguments, and updates the
         corresponding data if it is one of the following types:
-        StatusData, LogsData, Backup or AppData.
+        StatusData, LogsData, Snapshot or AppData.
         If any other type is provided as an argument to this function,
         a SquareException will be raised.
 
@@ -149,7 +133,6 @@ class AppCache:
             elif isinstance(arg, LogsData):
                 self._logs = arg
             elif isinstance(arg, Snapshot):
-                self._backup = arg
                 self._snapshot = arg
             elif isinstance(arg, AppData):
                 self._app_data = arg
@@ -493,20 +476,6 @@ class Application(CaptureListenerManager):
 
     @_update_cache
     @_notify_listener(Endpoint.snapshot())
-    @deprecated("this method will be removed in future versions, use the 'snapshot' method instead")
-    async def backup(self, *_args, **_kwargs) -> Snapshot:
-        """
-        The backup function is used to create a backup of the application.
-
-        :param self: Refer to the class instance
-        :return: A Backup object
-        :rtype: Backup
-        """
-        backup: Snapshot = await self.client.snapshot(self.id)
-        return backup
-
-    @_update_cache
-    @_notify_listener(Endpoint.snapshot())
     async def snapshot(self, *_args, **_kwargs) -> Snapshot:
         """
         The Snapshot function is used to create a snapshot of the application.
@@ -570,7 +539,7 @@ class Application(CaptureListenerManager):
         )
         return response
 
-    @validate
+    
     async def commit(self, file: File) -> Response:
         """
         The commit function is used to commit the application.
@@ -586,7 +555,7 @@ class Application(CaptureListenerManager):
         )
         return response
 
-    @validate
+    
     async def files_list(self, path: str) -> list[FileInfo]:
         """
         The files_list function returns a list of files and folders in the
@@ -604,7 +573,7 @@ class Application(CaptureListenerManager):
         )
         return response
 
-    @validate
+    
     async def read_file(self, path: str) -> BytesIO:
         """
         The read_file function reads the contents of a file from an app.
@@ -619,7 +588,7 @@ class Application(CaptureListenerManager):
         )
         return response
 
-    @validate
+    
     async def create_file(self, file: File, path: str) -> Response:
         """
         The create_file function creates a file in the specified path.
@@ -638,7 +607,7 @@ class Application(CaptureListenerManager):
         )
         return response
 
-    @validate
+    
     async def delete_file(self, path: str) -> Response:
         """
         The delete_file function deletes a file from the app.
@@ -668,7 +637,7 @@ class Application(CaptureListenerManager):
         )
         return response
 
-    @validate
+    
     async def github_integration(self, access_token: str) -> str:
         """
         The create_github_integration function returns a webhook to integrate
@@ -713,11 +682,6 @@ class Application(CaptureListenerManager):
         )
         return response
 
-    @deprecated("this method will be removed in future versions, use the 'all_snapshots' method instead")
-    async def all_backups(self) -> list[SnapshotInfo]:
-        backups: list[SnapshotInfo] = await self.client.all_app_snapshots(self.id)
-        return backups
-
     async def all_snapshots(self) -> list[SnapshotInfo]:
         """
         Retrieve all snapshots of the application.
@@ -728,7 +692,7 @@ class Application(CaptureListenerManager):
         snapshots: list[SnapshotInfo] = await self.client.all_app_snapshots(self.id)
         return snapshots
 
-    @validate
+    
     async def move_file(self, origin: str, dest: str) -> Response:
         """
         Moves a file from the origin path to the destination path within the application.

@@ -10,15 +10,15 @@ async def example() -> None:
 
     status = await app.status()
     logs = await app.logs()
-    backup = await app.backup()
+    snapshot = await app.snapshot()
 
     app.cache.clear()  # Clear cache
 
-    app.cache.update(status, logs, backup)  # Update cache
+    app.cache.update(status, logs, snapshot)  # Update cache
 
     print(app.cache.status)  # StatusData(...)
     print(app.cache.logs)  # LogsData(...)
-    print(app.cache.backup)  # BackupData(...)
+    print(app.cache.snapshot)  # SnapshotData(...)
 
 
 asyncio.run(example())

@@ -4,14 +4,16 @@ from __future__ import annotations
 
 from functools import wraps
 from io import BytesIO
-from typing import Any, Callable, Literal, ParamSpec, TypeVar
+from typing import Any, Callable, Literal, ParamSpec, TypeVar, cast
 
 from typing_extensions import deprecated
 
-from ._internal.decorators import validate
 from .app import Application
 from .data import (
     AppData,
+    Certificate,
+    Database,
+    DatabaseInfo,
     DeployData,
     DNSRecord,
     DomainAnalytics,
@@ -23,6 +25,7 @@ from .data import (
     StatusData,
     UploadData,
     UserData,
+    Workspace,
 )
 from .errors import ApplicationNotFound, InvalidFile, SquareException
 from .file import File
@@ -199,7 +202,7 @@ class Client(RequestListenerManager):
 
         return logs_data
 
-    @validate
+    
     @_notify_listener(Endpoint.app_status())
     async def app_status(self, app_id: str, **_kwargs) -> StatusData:
         """
@@ -221,7 +224,7 @@ class Client(RequestListenerManager):
         payload: dict[str, Any] = response.response
         return StatusData(**payload)
 
-    @validate
+    
     @_notify_listener(Endpoint.start())
     async def start_app(self, app_id: str, **_kwargs) -> Response:
         """
@@ -241,7 +244,7 @@ class Client(RequestListenerManager):
         """
         return await self._http.start_application(app_id)
 
-    @validate
+    
     @_notify_listener(Endpoint.stop())
     async def stop_app(self, app_id: str, **_kwargs) -> Response:
         """
@@ -261,7 +264,7 @@ class Client(RequestListenerManager):
         """
         return await self._http.stop_application(app_id)
 
-    @validate
+    
     @_notify_listener(Endpoint.restart())
     async def restart_app(self, app_id: str, **_kwargs) -> Response:
         """
@@ -279,32 +282,8 @@ class Client(RequestListenerManager):
         :raises TooManyRequestsError: Raised when the request status
                 code is 429
         """
-        return await self._http.restart_application(app_id)
-
-    @validate
-    @_notify_listener(Endpoint.snapshot())
-    @deprecated("this method will be removed in future versions, use the 'snapshot' method instead")
-    async def backup(self, app_id: str, **_kwargs) -> Snapshot:
-        """
-        The backup method is used to backup an application.
-
-        :param app_id: Specify the application id
-        :param _kwargs: Keyword arguments
-        :return: A Snapshot object
-        :rtype: Snapshot
-
-        :raises NotFoundError: Raised when the request status code is 404
-        :raises BadRequestError: Raised when the request status code is 400
-        :raises AuthenticationFailure: Raised when the request status
-                code is 401
-        :raises TooManyRequestsError: Raised when the request status
-                code is 429
-        """
-        response: Response = await self._http.snapshot(app_id)
-        payload: dict[str, Any] = response.response
-        return Snapshot(**payload)
+        return await self._http.restart_application(app_id)    
     
-    @validate
     @_notify_listener(Endpoint.snapshot())
     async def snapshot(self, app_id: str, **_kwargs) -> Snapshot:
         """
@@ -326,7 +305,34 @@ class Client(RequestListenerManager):
         payload: dict[str, Any] = response.response
         return Snapshot(**payload)
 
-    @validate
+    
+    async def restore_snapshot(self, application_type: Literal["app", "database"], app_id: str, snapshot_id:str, version_id:str, **_kwargs) -> Response:
+        """
+        The restore_snapshot method is used to restore a snapshot of an application.
+
+        :param application_type: Specify the type of the application, it can be "app" or "database"
+        :param app_id: Specify the application id
+        :param snapshot_id: Specify the snapshot id
+        :param version_id: Specify the snapshot version id
+
+        :return: A Response object
+        :rtype: Response
+
+        :raises NotFoundError: Raised when the request status code is 404
+        :raises BadRequestError: Raised when the request status code is 400
+        :raises AuthenticationFailure: Raised when the request status
+                code is 401
+        :raises TooManyRequestsError: Raised when the request status
+                code is 429
+        """
+
+        if application_type not in ["app", "database"]:
+            raise ValueError("application_type must be 'app' or 'database'")
+        
+
+        return await self._http.restore_snapshot(app_type=application_type, app_id=app_id, snapshot_id=snapshot_id, version_id=version_id)
+
+    
     @_notify_listener(Endpoint.delete_app())
     async def delete_app(self, app_id: str, **_kwargs) -> Response:
         """
@@ -346,7 +352,7 @@ class Client(RequestListenerManager):
         """
         return await self._http.delete_application(app_id)
 
-    @validate
+    
     @_notify_listener(Endpoint.commit())
     async def commit(self, app_id: str, file: File, **_kwargs) -> Response:
         """
@@ -367,7 +373,7 @@ class Client(RequestListenerManager):
         """
         return await self._http.commit(app_id, file)
 
-    @validate
+    
     @_notify_listener(Endpoint.user())
     async def app(self, app_id: str, **_kwargs) -> Application:
         """
@@ -425,7 +431,7 @@ class Client(RequestListenerManager):
             apps.append(Application(client=self, http=self._http, **data))
         return apps
 
-    @validate
+    
     @_notify_listener(Endpoint.upload())
     async def upload_app(self, file: File, **_kwargs) -> UploadData:
         """
@@ -480,7 +486,7 @@ class Client(RequestListenerManager):
         payload: dict[str, Any] = response.response
         return UploadData(**payload)
 
-    @validate
+    
     @_notify_listener(Endpoint.files_list())
     async def app_files_list(
         self, app_id: str, path: str, **_kwargs
@@ -511,7 +517,7 @@ class Client(RequestListenerManager):
             for data in response.response
         ]
 
-    @validate
+    
     @_notify_listener(Endpoint.files_read())
     async def read_app_file(
         self, app_id: str, path: str, **_kwargs
@@ -538,7 +544,7 @@ class Client(RequestListenerManager):
             return BytesIO(bytes(response.response.get("data")))
         return None
 
-    @validate
+    
     @_notify_listener(Endpoint.files_create())
     async def create_app_file(
         self, app_id: str, file: File, path: str, **_kwargs
@@ -573,7 +579,7 @@ class Client(RequestListenerManager):
 
         return response
 
-    @validate
+    
     @_notify_listener(Endpoint.files_delete())
     async def delete_app_file(
         self, app_id: str, path: str, **_kwargs
@@ -597,7 +603,7 @@ class Client(RequestListenerManager):
         """
         return await self._http.file_delete(app_id, path)
 
-    @validate
+    
     @_notify_listener(Endpoint.last_deploys())
     async def last_deploys(
         self, app_id: str, **_kwargs
@@ -622,7 +628,7 @@ class Client(RequestListenerManager):
         data = response.response
         return [[DeployData(**deploy) for deploy in _] for _ in data]
 
-    @validate
+    
     @_notify_listener(Endpoint.github_integration())
     async def github_integration(
         self, app_id: str, access_token: str, **_kwargs
@@ -651,7 +657,7 @@ class Client(RequestListenerManager):
         data = response.response
         return data.get("webhook")
 
-    @validate
+    
     @_notify_listener(Endpoint.custom_domain())
     async def set_custom_domain(
         self, app_id: str, custom_domain: str, **_kwargs
@@ -677,7 +683,7 @@ class Client(RequestListenerManager):
             app_id=app_id, custom_domain=custom_domain
         )
 
-    @validate
+    
     @_notify_listener(Endpoint.domain_analytics())
     async def domain_analytics(
         self, app_id: str, **_kwargs
@@ -700,20 +706,8 @@ class Client(RequestListenerManager):
         response: Response = await self._http.domain_analytics(
             app_id=app_id,
         )
-        return DomainAnalytics(**response.response)
-
-    @validate
-    @_notify_listener(Endpoint.all_snapshots())
-    @deprecated("this method will be removed in future versions, use the 'all_app_snapshots' method instead")
-    async def all_app_backups(
-        self, app_id: str, **_kwargs
-    ) -> list[SnapshotInfo]:
-        response: Response = await self._http.get_all_app_snapshots(
-            app_id=app_id
-        )
-        return [SnapshotInfo(**backup_data) for backup_data in response.response]
+        return DomainAnalytics(**response.response)    
     
-    @validate
     @_notify_listener(Endpoint.all_snapshots())
     async def all_app_snapshots(
         self, app_id: str, **_kwargs
@@ -755,7 +749,7 @@ class Client(RequestListenerManager):
                 all_status.append(ResumedStatus(**status))
         return all_status
 
-    @validate
+    
     @_notify_listener(Endpoint.move_file())
     async def move_app_file(
         self, app_id: str, origin: str, dest: str, **_kwargs
@@ -778,7 +772,7 @@ class Client(RequestListenerManager):
         )
         return response
 
-    @validate
+    
     @_notify_listener(Endpoint.dns_records())
     async def dns_records(self, app_id: str) -> list[DNSRecord]:
         """
@@ -792,7 +786,7 @@ class Client(RequestListenerManager):
         response: Response = await self._http.dns_records(app_id)
         return [DNSRecord(**data) for data in response.response]
 
-    @validate
+    
     @_notify_listener(Endpoint.current_integration())
     async def current_app_integration(self, app_id: str) -> str | None:
         response: Response = await self._http.get_app_current_integration(
@@ -872,3 +866,284 @@ class Client(RequestListenerManager):
         """
         response: Response = await self._http.overwrite_environment_variables(app_id, {})
         return response.response
+    
+    @_notify_listener(Endpoint.create_database())
+    async def create_database(
+            self,
+            name: str,
+            memory: int,
+            type: Literal["redis", "mongo", "mysql", "postgres"],
+            *,
+            version: str | None = None,
+        ) -> Database:
+        """
+        Create a new database.
+
+        :param name: Name of the database to be created.
+        :param memory: Memory in MB allocated to the database.
+        :param type: Database type ("redis", "mongo", "mysql", "postgres").
+        :param version: Database version.
+        :return: Database instance representing the created database.
+        """
+        versions = {
+            "redis": "7.4.5",
+            "mongo": "8.0.11",
+            "postgres": "17.6",
+            "mysql": "9.5",
+        }
+        version = version if version else versions.get(type)
+
+        response: Response = await self._http.create_database(name=name, memory=memory, type=type, version=version)
+
+        response.response.update({"certificate": Certificate(response.response['certificate'])})
+
+        return Database(**response.response)
+    
+    @_notify_listener(Endpoint.get_database_info())
+    async def get_database_info(self, database_id: str) -> DatabaseInfo:
+        """
+        Retrieve information about a specific database.
+
+        :param database_id: ID of the database to retrieve information for.
+        :return: DatabaseInfo instance containing details about the specified database.
+        """
+        response: Response = await self._http.get_database_information(database_id)
+        return DatabaseInfo(**response.response)
+
+    @_notify_listener(Endpoint.start_database())
+    async def start_database(self, database_id: str) -> Response:
+        """
+        Start a specific database.
+
+        :param database_id: ID of the database to be started.
+        :return: Response object containing the result of the start operation.
+        """
+        return await self._http.start_database(database_id)
+
+    @_notify_listener(Endpoint.stop_database())
+    async def stop_database(self, database_id: str) -> Response:
+        """
+        Stop a specific database.
+
+        :param database_id: ID of the database to be stopped.
+        :return: Response object containing the result of the stop operation.
+        """
+        return await self._http.stop_database(database_id)
+
+    @_notify_listener(Endpoint.edit_database())
+    async def edit_database(self, database_id: str, name: str | None = None, memory: int | None = None) -> Response:
+        """
+        Edit the configuration of a specific database.
+
+        :param database_id: ID of the database to be edited.
+        :param name: New name for the database (optional).
+        :param memory: New memory allocation in MB for the database (optional).
+        :return: Response object containing the result of the edit operation.
+        """
+        return await self._http.edit_database(database_id, name=name, memory=memory)
+
+    @_notify_listener(Endpoint.delete_database())
+    async def delete_database(self, database_id: str) -> Response:
+        """
+        Delete a specific database.
+
+        :param database_id: ID of the database to be deleted.
+        :return: Response object containing the result of the delete operation.
+        """
+        return await self._http.delete_database(database_id)
+    
+    @_notify_listener(Endpoint.all_databases_status())
+    async def all_databases_status(self) -> list[ResumedStatus]:
+        """
+        Retrieve the status of all databases.
+        This method fetches the status of all databases
+        and returns a list of `ResumedStatus` objects
+        """
+
+        response = await self._http.all_databases_status()
+        return [ResumedStatus(**status) for status in response.response]
+
+    @_notify_listener(Endpoint.database_status())
+    async def get_database_status(self, database_id: str) -> StatusData:
+        """
+        Obtains the status of a specific database and returns a StatusData object.
+
+        :param database_id: ID of the database
+        :return: A StatusData object containing the status of the specified database.   
+        """
+
+        response = await self._http.get_database_status(database_id)
+        return StatusData(**response.response)
+
+    @_notify_listener(Endpoint.get_database_certificate())
+    async def get_database_certificate(self, database_id: str) -> Certificate:
+        """
+        Retrieve the database TLS certificate.
+
+        :param database_id: Database identifier.
+        :return: Certificate instance.
+        """
+
+        response: Response = await self._http.get_database_certificate(database_id)
+
+        return Certificate(response.response['certificate'])
+
+    @_notify_listener(Endpoint.reset_database_credentials())
+    async def reset_database_password(self, database_id: str) -> str:
+        """
+        Reset database password credentials.
+
+        :param database_id: Database identifier.
+        :return: Newly generated password.
+        """
+
+        response: Response = await self._http.reset_database_credentials(database_id, "password")
+
+        return response.response["password"]
+    
+    @_notify_listener(Endpoint.reset_database_credentials())
+    async def reset_database_certificate(self, database_id: str) -> Response:
+        """
+        Regenerate the database certificate.
+
+        :param database_id: Database identifier.
+        :return: API response.
+        """
+        response: Response = await self._http.reset_database_credentials(database_id, "certificate")
+        return response
+
+    async def create_workspace(self, name: str) -> Workspace:
+        """Create a new workspace.
+
+        :param name: Name of the workspace to create.
+        :type name: str
+        :return: Workspace object containing the created workspace data.
+        :rtype: Workspace
+        """
+        create_workspace: Response = await self._http.create_workspace(name)
+        get_workspace: Response = await self._http.fetch_workspace(create_workspace.response["id"])
+        return Workspace(**get_workspace.response)
+
+    async def get_workspace(self, workspace_id: str) -> Workspace:
+        """Retrieve a workspace by its identifier.
+
+        :param workspace_id: ID of the workspace to fetch.
+        :type workspace_id: str
+        :return: Workspace object containing workspace details.
+        :rtype: Workspace
+        """
+        get_workspace: Response = await self._http.fetch_workspace(workspace_id)
+        get_workspace.response["applications"] = list(
+            map(lambda app: app | {"id": f'{app["id"]}-{get_workspace.response["id"]}'}, get_workspace.response["applications"])
+        )
+        return Workspace(**get_workspace.response)
+
+    async def delete_workspace(self, workspace_id: str) -> Response:
+        """Delete a workspace by its identifier.
+
+        :param workspace_id: ID of the workspace to delete.
+        :type workspace_id: str
+        :return: Response object returned by the API.
+        :rtype: Response
+        """
+        return await self._http.delete_workspace(workspace_id)
+
+    async def leave_workspace(self, workspace_id: str) -> Response:
+        """Leave a workspace.
+
+        :param workspace_id: ID of the workspace to leave.
+        :type workspace_id: str
+        :return: Response object returned by the API.
+        :rtype: Response
+        """
+        return await self._http.leave_workspace(workspace_id)
+
+    async def all_workspaces(self) -> list[Workspace]:
+        """Retrieve all workspaces available to the current user.
+
+        :return: List of Workspace objects representing all accessible workspaces.
+        :rtype: list[Workspace]
+        """
+        response: Response = await self._http.fetch_all_workspaces()
+        for workspace in response.response:
+            workspace["applications"] = list(
+                map(lambda app: app | {"id": f'{app["id"]}-{workspace["id"]}'}, workspace["applications"])
+            )
+        return [Workspace(**workspace) for workspace in response.response]
+
+    async def add_member_to_workspace(
+        self, workspace_id: str, invite_code: str, permissions: Literal["admin", "maintain", "manager", "view"]
+        ) -> Response:
+        """Add a member to a workspace using an invite code.
+
+        :param workspace_id: ID of the workspace.
+        :type workspace_id: str
+        :param invite_code: Invite code used to join the workspace.
+        :type invite_code: str
+        :param permissions: Permission level for the added member.
+        :type permissions: Literal["admin", "maintain", "manager", "view"]
+        :return: Response object returned by the API.
+        :rtype: Response
+        """
+        return await self._http.add_member_to_workspace(workspace_id, invite_code, permissions)
+
+    async def remove_member_from_workspace(self, workspace_id: str, user_id: str) -> Response:
+        """Remove a member from a workspace.
+
+        :param workspace_id: ID of the workspace.
+        :type workspace_id: str
+        :param user_id: ID of the member to remove.
+        :type user_id: str
+        :return: Response object returned by the API.
+        :rtype: Response
+        """
+        return await self._http.remove_member_from_workspace(workspace_id, user_id)
+
+    async def add_app_to_workspace(self, workspace_id: str, app_id: str) -> Response:
+        """Add an application to a workspace.
+
+        :param workspace_id: ID of the workspace.
+        :type workspace_id: str
+        :param app_id: ID of the application to add.
+        :type app_id: str
+        :return: Response object returned by the API.
+        :rtype: Response
+        """
+        return await self._http.add_app_to_workspace(workspace_id, app_id)
+
+    async def remove_app_from_workspace(self, workspace_id: str, app_id: str) -> Response:
+        """Remove an application from a workspace.
+
+        :param workspace_id: ID of the workspace.
+        :type workspace_id: str
+        :param app_id: ID of the application to remove.
+        :type app_id: str
+        :return: Response object returned by the API.
+        :rtype: Response
+        """
+        return await self._http.remove_app_from_workspace(workspace_id, app_id)
+
+    async def modify_member_permissions(
+        self, workspace_id: str, user_id: str, permissions: Literal["admin", "maintain", "manager", "view"]
+    ) -> Response:
+        """Change a workspace member's permissions.
+
+        :param workspace_id: ID of the workspace.
+        :type workspace_id: str
+        :param user_id: ID of the member whose permissions will be changed.
+        :type user_id: str
+        :param permissions: New permission level for the member.
+        :type permissions: Literal["admin", "maintain", "manager", "view"]
+        :return: Response object returned by the API.
+        :rtype: Response
+        """
+        return await self._http.change_workspace_member_permission(workspace_id, user_id, permissions)
+
+    async def get_invite_code(self) -> str:
+        """Retrieve the workspace invite code for the current user.
+
+        :return: Invite code string.
+        :rtype: str
+        """
+        response: Response = await self._http.get_workspace_member_code()
+        return cast(str, response.response.get("code", ""))

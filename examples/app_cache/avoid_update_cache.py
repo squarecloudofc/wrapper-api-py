@@ -13,11 +13,11 @@ async def example() -> None:
     # thus remaining with the old cache
     await app.status(update_cache=False)
     await app.logs(update_cache=False)
-    await app.backup(update_cache=False)
+    await app.snapshot(update_cache=False)
 
     print(app.cache.status)  # None
     print(app.cache.logs)  # None
-    print(app.cache.backup)  # None
+    print(app.cache.snapshot)  # None
 
 
 asyncio.run(example())

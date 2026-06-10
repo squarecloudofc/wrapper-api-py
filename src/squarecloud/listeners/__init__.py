@@ -4,12 +4,6 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Callable, Optional, Type, Union
 
-from .._internal.constants import USING_PYDANTIC
-
-if USING_PYDANTIC:
-    import pydantic
-    from pydantic import BaseModel
-
 from .. import data, errors
 from ..http.endpoints import Endpoint
 
@@ -137,31 +131,6 @@ class ListenerManager:
         :return: None
         """
         self.listeners = None
-
-    @classmethod
-    def cast_to_pydantic_model(
-        cls, model: Type['BaseModel'], values: dict[Any, Any]
-    ) -> None:
-        result: BaseModel | None | dict = values
-        if isinstance(model, types.UnionType):
-            for ty in model.__args__:
-                if ty is None:
-                    continue
-                if not issubclass(ty, BaseModel):
-                    continue
-                try:
-                    return ty(**values)
-                except pydantic.ValidationError:
-                    continue
-            return None
-        if issubclass(model, BaseModel):
-            try:
-                result = model(**values)
-            except pydantic.ValidationError as e:
-                print(e)
-                result = None
-        return result
-
 
 ListenerDataTypes = Union[
     data.AppData,

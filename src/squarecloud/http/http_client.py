@@ -163,7 +163,7 @@ class HTTPClient:
         """
         headers = {
             'Authorization': self.api_key,
-            'User-Agent': 'squarecloud-sdk-py/3.8.1',
+            'User-Agent': 'squarecloud-sdk-py/4.0.0',
         }
         extra_error_kwargs: dict[str, Any] = {}
 
@@ -350,7 +350,7 @@ class HTTPClient:
 
     async def snapshot(self, app_id: str) -> Response:
         """
-        Backup a hosted application
+        Do a Snapshot of a hosted application
 
         :param app_id: The application id
         :return: A Response object
@@ -366,7 +366,34 @@ class HTTPClient:
         route: Router = Router(Endpoint.snapshot(), app_id=app_id)
         response: Response = await self.request(route)
         return response
+    
+    async def restore_snapshot(self, app_type: Literal["app", "database"], app_id: str, snapshot_id: str, version_id: str) -> Response:
+        """
+        Restore a snapshot of an application
 
+        :param app_type: The application type
+        :param app_id: The application id
+        :param snapshot_id: The snapshot id
+        :param version_id: The version id
+        :return: A Response object 
+        :rtype: Response
+
+        :raises NotFoundError: Raised when the request status code is 404
+        :raises BadRequestError: Raised when the request status code is 400
+        :raises AuthenticationFailure: Raised when the request status
+                code is 401
+        :raises TooManyRequestsError: Raised when the request status
+                code is 429
+        """
+
+        endpoint = Endpoint.restore_database_snapshot() if app_type == "database" else Endpoint.restore_applications_snapshot()
+
+        route: Router = Router(endpoint, app_id=app_id)
+        response: Response = await self.request(route, json={'snapshotId': snapshot_id, 'versionId': version_id})
+
+        return response
+
+        
     async def delete_application(self, app_id: str) -> Response:
         """
         Delete a hosted application
@@ -657,7 +684,7 @@ class HTTPClient:
 
     async def get_all_app_snapshots(self, app_id: str) -> Response:
         """
-        Returns a list of all backups of the specified application
+        Returns a list of all Snapshots of the specified application
 
         :return: A Response object
         :rtype: Response
@@ -821,4 +848,275 @@ class HTTPClient:
         
         route: Router = Router(Endpoint.envs_put(), app_id=app_id)
         response: Response = await self.request(route, json={"envs": keys})
+        return response
+
+    async def create_database(self, name: str, memory: int, type: str, version: str) -> Response:
+        """
+        Creates a new database with the specified parameters.
+
+        :param name: The name of the database to be created.
+        :param memory: The amount of memory allocated for the database in MB.
+        :param type: The type of the database (e.g., "mongodb", "redis").
+        :param version: The version of the database to be used.
+        :return: A Response object containing the result of the database creation operation.
+        :rtype: Response
+        """
+        route: Router = Router(Endpoint.create_database())
+        body = {
+            "name": name,
+            "memory": memory,
+            "type": type,
+            "version": version
+        }
+        response: Response = await self.request(route, json=body)
+        return response
+
+    async def get_database_information(self, database_id: str) -> Response:
+        """
+        Retrieves information about a specific database.
+
+        :param database_id: The unique identifier of the database.
+        :return: A Response object containing the database information.
+        :rtype: Response
+        """
+        route: Router = Router(Endpoint.get_database_info(), database_id=database_id)
+        response: Response = await self.request(route)
+        return response 
+    
+    async def start_database(self, database_id: str) -> Response:
+        """
+        Starts a specific database.
+
+        :param database_id: The unique identifier of the database to be started.
+        :return: A Response object containing the result of the start operation.
+        :rtype: Response
+        """
+        route: Router = Router(Endpoint.start_database(), database_id=database_id)
+        response: Response = await self.request(route)
+        return response
+    
+    async def stop_database(self, database_id: str) -> Response:
+        """
+        Stops a specific database.
+
+        :param database_id: The unique identifier of the database to be stopped.
+        :return: A Response object containing the result of the stop operation.
+        :rtype: Response
+        
+        """
+        route: Router = Router(Endpoint.stop_database(), database_id=database_id)
+        response: Response = await self.request(route)
+        return response
+    
+    async def edit_database(self, database_id: str, name: str, memory: int) -> Response:
+        """
+        Edits the properties of a specific database.
+
+        :param database_id: The unique identifier of the database to be edited.
+        :param name: The new name for the database.
+        :param memory: The new amount of memory allocated for the database in MB.
+        :return: A Response object containing the result of the edit operation.
+        :rtype: Response
+        """
+        route: Router = Router(Endpoint.edit_database(), database_id=database_id)
+        body = {
+            "name": name,
+            "memory": memory
+        }
+        response: Response = await self.request(route, json=body)
+        return response
+    
+
+    async def delete_database(self, database_id: str) -> Response:
+        """
+        Deletes a specific database.
+
+        :param database_id: The unique identifier of the database to be deleted.
+        :return: A Response object containing the result of the delete operation.
+        :rtype: Response
+        """
+        route: Router = Router(Endpoint.delete_database(), database_id=database_id)
+        response: Response = await self.request(route)
+        return response
+
+
+    async def all_databases_status(self) -> Response:
+        """
+        Returns all databases status
+
+        :return: A Response object
+        :rtype: Response
+
+        """
+
+        route: Router = Router(Endpoint.all_databases_status())
+
+        return await self.request(route)
+    
+   
+
+    async def get_database_status(self, database_id: str) -> Response:
+        """
+        Returns the status of a specific database
+        :param database_id: The unique identifier of the database.
+
+        :return: A Response object
+        :rtype: Response
+
+        """
+
+        route: Router = Router(Endpoint.database_status(), database_id=database_id)
+
+        return await self.request(route)
+    
+
+    async def get_database_certificate(self, database_id: str) -> Response:
+        """
+        Request the certificate assigned to a database.
+
+        :param database_id: Database identifier.
+        :return: HTTP response containing certificate data.
+        """
+        route: Router = Router(Endpoint.get_database_certificate(), database_id=database_id)
+
+        return await self.request(route)
+    
+    async def reset_database_credentials(self, database_id: str, reset: Literal["password", "certificate"]) -> Response:
+        """
+        Reset database credentials.
+
+        :param database_id: Database identifier.
+        :param reset: Credential type to reset ("password" or "certificate").
+        :return: HTTP response with reset result.
+        """
+        route: Router = Router(Endpoint.reset_database_credentials(), database_id=database_id)
+
+        return await self.request(route, json={"reset": reset})
+
+    async def create_workspace(self, name: str) -> Response:
+        """
+        Create a new workspace.
+
+        :param name: Workspace name.
+        :return: A Response object.
+        """
+        route: Router = Router(Endpoint.create_workspace())
+        response: Response = await self.request(route, json={"name": name})
+        return response
+
+    async def fetch_workspace(self, workspace_id: str) -> Response:
+        """
+        Fetch a single workspace by ID.
+
+        :param workspace_id: Workspace identifier.
+        :return: A Response object.
+        """
+        route: Router = Router(Endpoint.get_workspace(), workspace_id=workspace_id)
+        response: Response = await self.request(route)
+        return response
+
+    async def delete_workspace(self, workspace_id: str) -> Response:
+        """
+        Delete a workspace owned by the authenticated user.
+
+        :param workspace_id: Workspace identifier.
+        :return: A Response object.
+        """
+        route: Router = Router(Endpoint.delete_workspace())
+        response: Response = await self.request(route, json={"workspaceId": workspace_id})
+        return response
+
+    async def fetch_all_workspaces(self) -> Response:
+        """
+        List workspaces owned by or shared with the authenticated user.
+
+        :return: A Response object.
+        """
+        route: Router = Router(Endpoint.all_workspaces())
+        response: Response = await self.request(route)
+        return response
+
+    async def add_app_to_workspace(self, workspace_id: str, app_id: str) -> Response:
+        """
+        Share an application into a workspace.
+
+        :param workspace_id: Workspace identifier.
+        :param app_id: Application identifier.
+        :return: A Response object.
+        """
+        route: Router = Router(Endpoint.add_app_to_workspace())
+        response: Response = await self.request(route, json={"workspaceId": workspace_id, "appId": app_id})
+        return response
+
+    async def remove_app_from_workspace(self, workspace_id: str, app_id: str) -> Response:
+        """
+        Remove a shared application from a workspace.
+
+        :param workspace_id: Workspace identifier.
+        :param app_id: Application identifier.
+        :return: A Response object.
+        """
+        route: Router = Router(Endpoint.remove_app_from_workspace())
+        response: Response = await self.request(route, json={"workspaceId": workspace_id, "appId": app_id})
+        return response
+
+    async def add_member_to_workspace(self, workspace_id: str, invite_code: str, group: str) -> Response:
+        """
+        Add a member to a workspace using an invite code.
+
+        :param workspace_id: Workspace identifier.
+        :param invite_code: Invite code issued by the workspace owner.
+        :param group: Permission group for the new member.
+        :return: A Response object.
+        """
+        route: Router = Router(Endpoint.add_member_to_workspace())
+        response: Response = await self.request(
+            route, json={"workspaceId": workspace_id, "code": invite_code, "group": group}
+        )
+        return response
+
+    async def remove_member_from_workspace(self, workspace_id: str, member_id: str) -> Response:
+        """
+        Remove a member from a workspace.
+
+        :param workspace_id: Workspace identifier.
+        :param member_id: Member identifier.
+        :return: A Response object.
+        """
+        route: Router = Router(Endpoint.remove_member_from_workspace())
+        response: Response = await self.request(route, json={"workspaceId": workspace_id, "memberId": member_id})
+        return response
+
+    async def change_workspace_member_permission(self, workspace_id: str, member_id: str, group: str) -> Response:
+        """
+        Change the permission group of a workspace member.
+
+        :param workspace_id: Workspace identifier.
+        :param member_id: Member identifier.
+        :param group: New permission group for the member.
+        :return: A Response object.
+        """
+        route: Router = Router(Endpoint.modify_member_permissions())
+        response: Response = await self.request(route, json={"workspaceId": workspace_id, "memberId": member_id, "group": group})
+        return response
+
+    async def leave_workspace(self, workspace_id: str) -> Response:
+        """
+        Leave a workspace the authenticated user belongs to.
+
+        :param workspace_id: Workspace identifier.
+        :return: A Response object.
+        """
+        route: Router = Router(Endpoint.leave_workspace())
+        response: Response = await self.request(route, json={"workspaceId": workspace_id})
+        return response
+
+    async def get_workspace_member_code(self) -> Response:
+        """
+        Generate an invite code for the authenticated user.
+
+        :return: A Response object.
+        """
+        route: Router = Router(Endpoint.workspaces_members_code())
+        response: Response = await self.request(route)
         return response

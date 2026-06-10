@@ -3,11 +3,6 @@ import logging
 import types
 from typing import Any
 
-from .._internal.constants import USING_PYDANTIC
-
-if USING_PYDANTIC:
-    import pydantic
-
 from ..http import Endpoint, Response
 from . import ListenerManager
 
@@ -41,11 +36,6 @@ class RequestListenerManager(ListenerManager):
         :return: The result of the call function
         """
 
-        def filter_annotations(annotations: list[Any]) -> Any:
-            for item in annotations:
-                if issubclass(item, pydantic.BaseModel):
-                    yield item
-
         if not (listener := self.get_listener(endpoint)):
             return None
         logger = logging.getLogger('squarecloud')
@@ -61,36 +51,6 @@ class RequestListenerManager(ListenerManager):
 
         if call_extra_param:
             annotation = call_extra_param.annotation
-        if (
-            call_extra_param is not None
-            and annotation is not None
-            and annotation != call_extra_param.empty
-            and USING_PYDANTIC
-        ):
-            annotation = call_extra_param.annotation
-            cast_result = self.cast_to_pydantic_model(annotation, extra_value)
-            if not cast_result:
-                msg: str = (
-                    f'a "{annotation.__name__}"'
-                    if not isinstance(annotation, types.UnionType)
-                    else str(
-                        [
-                            x.__name__
-                            for x in filter_annotations(
-                                list(annotation.__args__)
-                            )
-                        ]
-                    )
-                )
-                logger.warning(
-                    'Failed on cast extra argument in '
-                    f'"{listener.callback.__name__}" into '
-                    f'{msg}.\n'
-                    f'The listener has been skipped.',
-                    extra={'type': 'listener'},
-                )
-                return None
-            kwargs['extra'] = cast_result
         is_coro: bool = inspect.iscoroutinefunction(listener.callback)
         try:
             if is_coro:
