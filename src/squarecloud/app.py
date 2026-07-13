@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
 from datetime import datetime
 from functools import wraps
 from io import BytesIO
@@ -762,3 +763,111 @@ class Application(CaptureListenerManager):
         :rtype: dict[str, str]
         """
         return await self.client.overwrite_app_envs(self.id, envs)
+
+    async def metrics(self) -> dict[str, Any]:
+        """
+        Get the last 24h of metrics for the application
+        (288 points, sampled every 5 minutes).
+        Available only for apps with at least 512 MB of RAM.
+
+        :return: The raw metrics payload.
+        :rtype: dict[str, Any]
+        """
+        return await self.client.app_metrics(self.id)
+
+    def realtime(self) -> AsyncGenerator[dict[str, Any] | str, None]:
+        """
+        Stream realtime status events (SSE) for the application.
+
+        Usage::
+
+            async for event in app.realtime():
+                print(event)
+
+        :return: An async generator of decoded events.
+        :rtype: AsyncGenerator[dict[str, Any] | str, None]
+        """
+        return self.client.realtime(self.id)
+
+    async def link_github_app(
+        self, repository_name: str, repository_branch: str
+    ) -> dict[str, Any]:
+        """
+        Link a GitHub repository via the Square Cloud GitHub App.
+        Requires a session token (JWT); API keys are not accepted.
+
+        :param repository_name: Full repository name (e.g. octocat/hello-world).
+        :param repository_branch: Repository branch.
+        :return: The linked repository information.
+        :rtype: dict[str, Any]
+        """
+        return await self.client.link_github_app(
+            self.id, repository_name, repository_branch
+        )
+
+    async def unlink_github_app(self) -> Response:
+        """
+        Unlink the GitHub App repository from the application.
+        Requires a session token (JWT); API keys are not accepted.
+
+        :return: A Response object.
+        :rtype: Response
+        """
+        return await self.client.unlink_github_app(self.id)
+
+    async def network_errors(
+        self,
+        start: str | datetime,
+        end: str | datetime,
+        include_4xx: bool = False,
+    ) -> dict[str, Any]:
+        """
+        Get the aggregated edge error breakdown (4xx/5xx) for the
+        application's domains. Defaults to 5xx only.
+
+        :param start: ISO 8601 start timestamp (or datetime).
+        :param end: ISO 8601 end timestamp (or datetime).
+        :param include_4xx: Include 4xx alongside 5xx.
+        :return: The raw errors payload.
+        :rtype: dict[str, Any]
+        """
+        return await self.client.network_errors(
+            self.id, start, end, include_4xx
+        )
+
+    async def network_logs(
+        self, start: str | datetime, end: str | datetime
+    ) -> dict[str, Any]:
+        """
+        Get the per-request edge logs for the application's domains.
+        Requires Pro plan or higher.
+
+        :param start: ISO 8601 start timestamp (or datetime).
+        :param end: ISO 8601 end timestamp (or datetime).
+        :return: The raw logs payload.
+        :rtype: dict[str, Any]
+        """
+        return await self.client.network_logs(self.id, start, end)
+
+    async def network_performance(
+        self, start: str | datetime, end: str | datetime
+    ) -> dict[str, Any]:
+        """
+        Get edge and origin latency percentiles (p50/p95/p99) for the
+        application's domains. Requires Pro plan or higher.
+
+        :param start: ISO 8601 start timestamp (or datetime).
+        :param end: ISO 8601 end timestamp (or datetime).
+        :return: The raw performance payload.
+        :rtype: dict[str, Any]
+        """
+        return await self.client.network_performance(self.id, start, end)
+
+    async def purge_cache(self) -> Response:
+        """
+        Purge the entire edge cache for the application's domains.
+
+        :return: A Response object.
+        :rtype: Response
+        """
+        return await self.client.purge_cache(self.id)

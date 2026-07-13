@@ -6,6 +6,12 @@ class Endpoint:
 
     ENDPOINTS_V2 = {
         'USER': {'METHOD': 'GET', 'PATH': '/users/me'},
+        'USER_SNAPSHOTS': {'METHOD': 'GET', 'PATH': '/users/snapshots'},
+        'SERVICE_STATUS': {'METHOD': 'GET', 'PATH': '/service/status'},
+        'ALL_DOMAINS': {'METHOD': 'GET', 'PATH': '/apps/domains'},
+        'LOAD_BALANCERS': {'METHOD': 'GET', 'PATH': '/apps/load-balancers'},
+        'APP_METRICS': {'METHOD': 'GET', 'PATH': '/apps/{app_id}/metrics'},
+        'REALTIME': {'METHOD': 'GET', 'PATH': '/apps/{app_id}/realtime'},
         'APP_DATA': {'METHOD': 'GET', 'PATH': '/apps/{app_id}'},
         'APP_STATUS': {'METHOD': 'GET', 'PATH': '/apps/{app_id}/status'},
         'ALL_APPS_STATUS': {'METHOD': 'GET', 'PATH': '/apps/status'},
@@ -55,6 +61,14 @@ class Endpoint:
             'METHOD': 'POST',
             'PATH': '/apps/{app_id}/deploy/webhook',
         },
+        'GITHUB_APP_LINK': {
+            'METHOD': 'POST',
+            'PATH': '/apps/{app_id}/deploy/github-app',
+        },
+        'GITHUB_APP_UNLINK': {
+            'METHOD': 'DELETE',
+            'PATH': '/apps/{app_id}/deploy/github-app',
+        },
         'CUSTOM_DOMAIN': {
             'METHOD': 'POST',
             'PATH': '/apps/{app_id}/network/custom',
@@ -64,6 +78,22 @@ class Endpoint:
             'PATH': '/apps/{app_id}/network/analytics',
         },
         'DNSRECORDS': {'METHOD': 'GET', 'PATH': '/apps/{app_id}/network/dns'},
+        'NETWORK_ERRORS': {
+            'METHOD': 'GET',
+            'PATH': '/apps/{app_id}/network/errors',
+        },
+        'NETWORK_LOGS': {
+            'METHOD': 'GET',
+            'PATH': '/apps/{app_id}/network/logs',
+        },
+        'NETWORK_PERFORMANCE': {
+            'METHOD': 'GET',
+            'PATH': '/apps/{app_id}/network/performance',
+        },
+        'PURGE_CACHE': {
+            'METHOD': 'POST',
+            'PATH': '/apps/{app_id}/network/purge_cache',
+        },
         'ENVS_GET': {'METHOD': 'GET', 'PATH': '/apps/{app_id}/envs'},
         'ENVS_PUT': {'METHOD': 'PUT', 'PATH': '/apps/{app_id}/envs'},
         'ENVS_POST': {'METHOD': 'POST', 'PATH': '/apps/{app_id}/envs'},
@@ -75,6 +105,9 @@ class Endpoint:
         'EDIT_DATABASE': {'METHOD': 'PATCH', 'PATH': '/databases/{database_id}'},
         'DELETE_DATABASE': {'METHOD': 'DELETE', 'PATH': '/databases/{database_id}'},
         'ALL_DATABASES_STATUS': {'METHOD': 'GET', 'PATH': '/databases/status'},
+        'DATABASE_METRICS': {'METHOD': 'GET', 'PATH': '/databases/{database_id}/metrics'},
+        'ALL_DATABASE_SNAPSHOTS': {'METHOD': 'GET', 'PATH': '/databases/{database_id}/snapshots'},
+        'DATABASE_SNAPSHOT': {'METHOD': 'POST', 'PATH': '/databases/{database_id}/snapshots'},
         'DATABASE_STATUS': {'METHOD': 'GET', 'PATH': '/databases/{database_id}/status'},
         'GET_DATABASE_CERTIFICATE': {'METHOD': 'GET', 'PATH': '/databases/{database_id}/credentials/certificate'},
         'RESET_DATABASE_CREDENTIALS': {'METHOD': 'POST', 'PATH': '/databases/{database_id}/credentials/reset'},
@@ -543,6 +576,126 @@ class Endpoint:
         """
 
         return cls('GET_WORKSPACE')
+
+    @classmethod
+    def user_snapshots(cls) -> Endpoint:
+        """
+        Returns an Endpoint object that represents the
+        /users/snapshots endpoint.
+        """
+        return cls('USER_SNAPSHOTS')
+
+    @classmethod
+    def service_status(cls) -> Endpoint:
+        """
+        Returns an Endpoint object that represents the
+        /service/status endpoint.
+        """
+        return cls('SERVICE_STATUS')
+
+    @classmethod
+    def all_domains(cls) -> Endpoint:
+        """
+        Returns an Endpoint object that represents the
+        /apps/domains endpoint.
+        """
+        return cls('ALL_DOMAINS')
+
+    @classmethod
+    def load_balancers(cls) -> Endpoint:
+        """
+        Returns an Endpoint object that represents the
+        /apps/load-balancers endpoint.
+        """
+        return cls('LOAD_BALANCERS')
+
+    @classmethod
+    def app_metrics(cls) -> Endpoint:
+        """
+        Returns an Endpoint object that represents the
+        /apps/{app_id}/metrics endpoint.
+        """
+        return cls('APP_METRICS')
+
+    @classmethod
+    def realtime(cls) -> Endpoint:
+        """
+        Returns an Endpoint object that represents the
+        /apps/{app_id}/realtime endpoint.
+        """
+        return cls('REALTIME')
+
+    @classmethod
+    def github_app_link(cls) -> Endpoint:
+        """
+        Returns an Endpoint object that represents the
+        /apps/{app_id}/deploy/github-app POST endpoint.
+        """
+        return cls('GITHUB_APP_LINK')
+
+    @classmethod
+    def github_app_unlink(cls) -> Endpoint:
+        """
+        Returns an Endpoint object that represents the
+        /apps/{app_id}/deploy/github-app DELETE endpoint.
+        """
+        return cls('GITHUB_APP_UNLINK')
+
+    @classmethod
+    def network_errors(cls) -> Endpoint:
+        """
+        Returns an Endpoint object that represents the
+        /apps/{app_id}/network/errors endpoint.
+        """
+        return cls('NETWORK_ERRORS')
+
+    @classmethod
+    def network_logs(cls) -> Endpoint:
+        """
+        Returns an Endpoint object that represents the
+        /apps/{app_id}/network/logs endpoint.
+        """
+        return cls('NETWORK_LOGS')
+
+    @classmethod
+    def network_performance(cls) -> Endpoint:
+        """
+        Returns an Endpoint object that represents the
+        /apps/{app_id}/network/performance endpoint.
+        """
+        return cls('NETWORK_PERFORMANCE')
+
+    @classmethod
+    def purge_cache(cls) -> Endpoint:
+        """
+        Returns an Endpoint object that represents the
+        /apps/{app_id}/network/purge_cache endpoint.
+        """
+        return cls('PURGE_CACHE')
+
+    @classmethod
+    def database_metrics(cls) -> Endpoint:
+        """
+        Returns an Endpoint object that represents the
+        /databases/{database_id}/metrics endpoint.
+        """
+        return cls('DATABASE_METRICS')
+
+    @classmethod
+    def all_database_snapshots(cls) -> Endpoint:
+        """
+        Returns an Endpoint object that represents the
+        /databases/{database_id}/snapshots GET endpoint.
+        """
+        return cls('ALL_DATABASE_SNAPSHOTS')
+
+    @classmethod
+    def database_snapshot(cls) -> Endpoint:
+        """
+        Returns an Endpoint object that represents the
+        /databases/{database_id}/snapshots POST endpoint.
+        """
+        return cls('DATABASE_SNAPSHOT')
 
 # pylint: disable=too-few-public-methods
 class Router:

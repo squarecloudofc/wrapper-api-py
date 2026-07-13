@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
+from datetime import datetime
 from functools import wraps
 from io import BytesIO
 from typing import Any, Callable, Literal, ParamSpec, TypeVar, cast
@@ -37,6 +39,10 @@ from .logger import logger
 
 P = ParamSpec("P")
 R = TypeVar("R")
+
+
+def _to_iso(value: str | datetime) -> str:
+    return value.isoformat() if isinstance(value, datetime) else value
 
 
 class Client(RequestListenerManager):
@@ -686,12 +692,43 @@ class Client(RequestListenerManager):
     
     @_notify_listener(Endpoint.domain_analytics())
     async def domain_analytics(
-        self, app_id: str, **_kwargs
+        self,
+        app_id: str,
+        *,
+        start: str | datetime | None = None,
+        end: str | datetime | None = None,
+        country: str | None = None,
+        ip: str | None = None,
+        path: str | None = None,
+        status: str | None = None,
+        os: str | None = None,
+        browser: str | None = None,
+        protocol: str | None = None,
+        referer: str | None = None,
+        provider: str | None = None,
+        content_type: str | None = None,
+        bot: str | None = None,
+        **_kwargs,
     ) -> DomainAnalytics:
         """
-        The domain_analytics method return a DomainAnalytics object
+        The domain_analytics method return a DomainAnalytics object.
+        Maximum retention window is 7 days. The optional drill-down filters
+        apply to every breakdown at once.
 
         :param app_id: Specify the application by id
+        :param start: ISO 8601 start timestamp (or datetime)
+        :param end: ISO 8601 end timestamp (or datetime)
+        :param country: Filter to one client country (2-char code, e.g. BR)
+        :param ip: Filter to one client IP (exact match)
+        :param path: Filter to request paths starting with this prefix
+        :param status: Filter to one edge response status code
+        :param os: Filter to one client OS
+        :param browser: Filter to one client browser
+        :param protocol: Filter to one HTTP protocol
+        :param referer: Filter to one referer host ("Direct" = no referer)
+        :param provider: Filter to one client network
+        :param content_type: Filter to one response content type
+        :param bot: Filter to one verified-bot category
         :param _kwargs: Keyword arguments
         :return: A DomainAnalytics object
         :rtype: DomainAnalytics
@@ -703,10 +740,26 @@ class Client(RequestListenerManager):
         :raises TooManyRequestsError: Raised when the request status
                 code is 429
         """
+        params = {
+            'start': _to_iso(start) if start else None,
+            'end': _to_iso(end) if end else None,
+            'country': country,
+            'ip': ip,
+            'path': path,
+            'status': status,
+            'os': os,
+            'browser': browser,
+            'protocol': protocol,
+            'referer': referer,
+            'provider': provider,
+            'content_type': content_type,
+            'bot': bot,
+        }
+        params = {key: value for key, value in params.items() if value}
         response: Response = await self._http.domain_analytics(
-            app_id=app_id,
+            app_id=app_id, params=params
         )
-        return DomainAnalytics(**response.response)    
+        return DomainAnalytics(**response.response)
     
     @_notify_listener(Endpoint.all_snapshots())
     async def all_app_snapshots(
@@ -1147,3 +1200,213 @@ class Client(RequestListenerManager):
         """
         response: Response = await self._http.get_workspace_member_code()
         return cast(str, response.response.get("code", ""))
+
+    async def service_status(self) -> dict[str, Any]:
+        """Get the aggregate platform status (mirrors the public status page).
+
+        Note: this endpoint does not use the usual {status, response}
+        envelope — the raw payload ({status, message}) is returned.
+
+        :return: The raw status payload.
+        :rtype: dict[str, Any]
+        """
+        response: Response = await self._http.fetch_service_status()
+        return response.data
+
+    async def user_snapshots(
+        self, scope: Literal["applications", "databases"] = "applications"
+    ) -> list[dict[str, Any]]:
+        """List the authenticated user's snapshots.
+        Requires an active paid plan (402 UPGRADE_REQUIRED otherwise).
+
+        :param scope: Snapshot scope (default "applications").
+        :return: The raw list of snapshots.
+        :rtype: list[dict[str, Any]]
+        """
+        response: Response = await self._http.fetch_user_snapshots(scope)
+        return response.response
+
+    async def all_domains(self) -> list[dict[str, Any]]:
+        """List every domain configured across your applications — the
+        default subdomain and any attached custom domain.
+        Rate limited to 20 requests per 60s.
+
+        :return: The raw list of domains.
+        :rtype: list[dict[str, Any]]
+        """
+        response: Response = await self._http.fetch_all_domains()
+        return response.response
+
+    async def load_balancers(self) -> dict[str, Any]:
+        """List your custom-domain load balancers — applications grouped by
+        attached custom domain. Rate limited to 20 requests per 60s.
+
+        :return: The raw load balancers payload.
+        :rtype: dict[str, Any]
+        """
+        response: Response = await self._http.fetch_load_balancers()
+        return response.response
+
+    async def app_metrics(self, app_id: str) -> dict[str, Any]:
+        """Get the last 24h of metrics for an application
+        (288 points, sampled every 5 minutes).
+        Available only for apps with at least 512 MB of RAM.
+
+        :param app_id: Specify the application by id.
+        :return: The raw metrics payload.
+        :rtype: dict[str, Any]
+        """
+        response: Response = await self._http.fetch_app_metrics(app_id)
+        return response.response
+
+    async def database_metrics(self, database_id: str) -> dict[str, Any]:
+        """Get the last 24h of metrics for a database
+        (288 points, sampled every 5 minutes).
+
+        :param database_id: Specify the database by id.
+        :return: The raw metrics payload.
+        :rtype: dict[str, Any]
+        """
+        response: Response = await self._http.fetch_database_metrics(
+            database_id
+        )
+        return response.response
+
+    async def link_github_app(
+        self, app_id: str, repository_name: str, repository_branch: str
+    ) -> dict[str, Any]:
+        """Link a GitHub repository via the Square Cloud GitHub App.
+        Requires a session token (JWT); API keys are not accepted.
+
+        :param app_id: Specify the application by id.
+        :param repository_name: Full repository name (e.g. octocat/hello-world).
+        :param repository_branch: Repository branch (max 256 chars).
+        :return: The linked repository information.
+        :rtype: dict[str, Any]
+        """
+        response: Response = await self._http.link_github_app(
+            app_id, repository_name, repository_branch
+        )
+        return response.response.get("repository", {})
+
+    async def unlink_github_app(self, app_id: str) -> Response:
+        """Unlink the GitHub App repository from an application.
+        Requires a session token (JWT); API keys are not accepted.
+
+        :param app_id: Specify the application by id.
+        :return: Response object returned by the API.
+        :rtype: Response
+        """
+        return await self._http.unlink_github_app(app_id)
+
+    async def network_errors(
+        self,
+        app_id: str,
+        start: str | datetime,
+        end: str | datetime,
+        include_4xx: bool = False,
+    ) -> dict[str, Any]:
+        """Get the aggregated edge error breakdown (4xx/5xx) for an
+        application's domains. Defaults to 5xx only.
+
+        :param app_id: Specify the application by id.
+        :param start: ISO 8601 start timestamp (or datetime).
+        :param end: ISO 8601 end timestamp (or datetime).
+        :param include_4xx: Include 4xx alongside 5xx.
+        :return: The raw errors payload.
+        :rtype: dict[str, Any]
+        """
+        response: Response = await self._http.network_errors(
+            app_id, _to_iso(start), _to_iso(end), include_4xx
+        )
+        return response.response
+
+    async def network_logs(
+        self, app_id: str, start: str | datetime, end: str | datetime
+    ) -> dict[str, Any]:
+        """Get the per-request edge logs for an application's domains.
+        Requires Pro plan or higher.
+
+        :param app_id: Specify the application by id.
+        :param start: ISO 8601 start timestamp (or datetime).
+        :param end: ISO 8601 end timestamp (or datetime).
+        :return: The raw logs payload.
+        :rtype: dict[str, Any]
+        """
+        response: Response = await self._http.network_logs(
+            app_id, _to_iso(start), _to_iso(end)
+        )
+        return response.response
+
+    async def network_performance(
+        self, app_id: str, start: str | datetime, end: str | datetime
+    ) -> dict[str, Any]:
+        """Get edge and origin latency percentiles (p50/p95/p99) for an
+        application's domains. Requires Pro plan or higher.
+
+        :param app_id: Specify the application by id.
+        :param start: ISO 8601 start timestamp (or datetime).
+        :param end: ISO 8601 end timestamp (or datetime).
+        :return: The raw performance payload.
+        :rtype: dict[str, Any]
+        """
+        response: Response = await self._http.network_performance(
+            app_id, _to_iso(start), _to_iso(end)
+        )
+        return response.response
+
+    async def purge_cache(self, app_id: str) -> Response:
+        """Purge the entire edge cache for an application's domains.
+
+        :param app_id: Specify the application by id.
+        :return: Response object returned by the API.
+        :rtype: Response
+        """
+        return await self._http.purge_cache(app_id)
+
+    async def all_database_snapshots(
+        self, database_id: str
+    ) -> list[SnapshotInfo]:
+        """Retrieve all snapshots of a database.
+
+        :param database_id: Specify the database by id.
+        :return: A list of SnapshotInfo objects.
+        :rtype: list[SnapshotInfo]
+        """
+        response: Response = await self._http.get_all_database_snapshots(
+            database_id
+        )
+        return [
+            SnapshotInfo(**snapshot_data)
+            for snapshot_data in response.response
+        ]
+
+    async def database_snapshot(self, database_id: str) -> Snapshot:
+        """Create a snapshot of a database.
+
+        :param database_id: Specify the database by id.
+        :return: A Snapshot object.
+        :rtype: Snapshot
+        """
+        response: Response = await self._http.create_database_snapshot(
+            database_id
+        )
+        return Snapshot(**response.response)
+
+    def realtime(
+        self, app_id: str
+    ) -> AsyncGenerator[dict[str, Any] | str, None]:
+        """Stream realtime status events (SSE) for an application.
+        Max 5 concurrent connections per user; connections live for up to
+        10 minutes.
+
+        Usage::
+
+            async for event in client.realtime(app_id):
+                print(event)
+
+        :param app_id: Specify the application by id.
+        :return: An async generator of decoded events.
+        :rtype: AsyncGenerator[dict[str, Any] | str, None]
+        """
+        return self._http.realtime(app_id)

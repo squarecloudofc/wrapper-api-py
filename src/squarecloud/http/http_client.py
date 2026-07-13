@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import logging
+from collections.abc import AsyncGenerator
 from typing import Any, Literal
 
 import aiohttp
@@ -104,6 +106,8 @@ def _get_error(code: str) -> type[RequestError] | None:
 class HTTPClient:
     """A client that handles requests and responses"""
 
+    USER_AGENT = 'squarecloud-sdk-py/4.1.0'
+
     def __init__(self, api_key: str) -> None:
         """
         The __init__ function is called when the class is instantiated.
@@ -163,7 +167,7 @@ class HTTPClient:
         """
         headers = {
             'Authorization': self.api_key,
-            'User-Agent': 'squarecloud-sdk-py/4.0.0',
+            'User-Agent': self.USER_AGENT,
         }
         extra_error_kwargs: dict[str, Any] = {}
 
@@ -662,12 +666,17 @@ class HTTPClient:
         )
         return response
 
-    async def domain_analytics(self, app_id: str) -> Response:
+    async def domain_analytics(
+        self, app_id: str, params: dict[str, str] | None = None
+    ) -> Response:
         """
         The domain_analytics method returns a list of all domains analytics
         for the specified app.
 
         :param app_id: The application id
+        :param params: Optional query params (start/end window and
+                drill-down filters such as country, ip, path, status, os,
+                browser, protocol, referer, provider, content_type, bot)
         :return: A Response object
         :rtype: Response
 
@@ -679,7 +688,7 @@ class HTTPClient:
                 code is 429
         """
         route: Router = Router(Endpoint.domain_analytics(), app_id=app_id)
-        response: Response = await self.request(route)
+        response: Response = await self.request(route, params=params or {})
         return response
 
     async def get_all_app_snapshots(self, app_id: str) -> Response:
@@ -1120,3 +1129,218 @@ class HTTPClient:
         route: Router = Router(Endpoint.workspaces_members_code())
         response: Response = await self.request(route)
         return response
+
+    async def fetch_user_snapshots(self, scope: str) -> Response:
+        """
+        Fetch the authenticated user's snapshots.
+
+        :param scope: Snapshot scope ("applications" or "databases").
+        :return: A Response object.
+        """
+        route: Router = Router(Endpoint.user_snapshots())
+        return await self.request(route, params={'scope': scope})
+
+    async def fetch_service_status(self) -> Response:
+        """
+        Fetch the aggregate platform status.
+
+        Note: this endpoint does not wrap its payload in the usual
+        {status, response} envelope — it returns {status, message} directly.
+
+        :return: A Response object (payload in Response.data).
+        """
+        route: Router = Router(Endpoint.service_status())
+        return await self.request(route)
+
+    async def fetch_all_domains(self) -> Response:
+        """
+        Fetch every domain configured across the user's applications.
+
+        :return: A Response object.
+        """
+        route: Router = Router(Endpoint.all_domains())
+        return await self.request(route)
+
+    async def fetch_load_balancers(self) -> Response:
+        """
+        Fetch the user's custom-domain load balancers.
+
+        :return: A Response object.
+        """
+        route: Router = Router(Endpoint.load_balancers())
+        return await self.request(route)
+
+    async def fetch_app_metrics(self, app_id: str) -> Response:
+        """
+        Fetch the last 24h of metrics for an application.
+
+        :param app_id: The application id.
+        :return: A Response object.
+        """
+        route: Router = Router(Endpoint.app_metrics(), app_id=app_id)
+        return await self.request(route)
+
+    async def fetch_database_metrics(self, database_id: str) -> Response:
+        """
+        Fetch the last 24h of metrics for a database.
+
+        :param database_id: The database id.
+        :return: A Response object.
+        """
+        route: Router = Router(
+            Endpoint.database_metrics(), database_id=database_id
+        )
+        return await self.request(route)
+
+    async def link_github_app(
+        self, app_id: str, repository_name: str, repository_branch: str
+    ) -> Response:
+        """
+        Link a GitHub repository via the Square Cloud GitHub App.
+        Requires a session token (JWT); API keys are not accepted.
+
+        :param app_id: The application id.
+        :param repository_name: Full repository name (e.g. octocat/hello-world).
+        :param repository_branch: Repository branch.
+        :return: A Response object.
+        """
+        route: Router = Router(Endpoint.github_app_link(), app_id=app_id)
+        body = {
+            'repositoryName': repository_name,
+            'repositoryBranch': repository_branch,
+        }
+        return await self.request(route, json=body)
+
+    async def unlink_github_app(self, app_id: str) -> Response:
+        """
+        Unlink the GitHub App repository from an application.
+        Requires a session token (JWT); API keys are not accepted.
+
+        :param app_id: The application id.
+        :return: A Response object.
+        """
+        route: Router = Router(Endpoint.github_app_unlink(), app_id=app_id)
+        return await self.request(route)
+
+    async def network_errors(
+        self, app_id: str, start: str, end: str, include_4xx: bool = False
+    ) -> Response:
+        """
+        Fetch the aggregated edge error breakdown for an application.
+
+        :param app_id: The application id.
+        :param start: ISO 8601 start timestamp.
+        :param end: ISO 8601 end timestamp.
+        :param include_4xx: Include 4xx alongside 5xx (default 5xx only).
+        :return: A Response object.
+        """
+        route: Router = Router(Endpoint.network_errors(), app_id=app_id)
+        params = {'start': start, 'end': end}
+        if include_4xx:
+            params['include_4xx'] = 'true'
+        return await self.request(route, params=params)
+
+    async def network_logs(self, app_id: str, start: str, end: str) -> Response:
+        """
+        Fetch the per-request edge logs for an application.
+
+        :param app_id: The application id.
+        :param start: ISO 8601 start timestamp.
+        :param end: ISO 8601 end timestamp.
+        :return: A Response object.
+        """
+        route: Router = Router(Endpoint.network_logs(), app_id=app_id)
+        return await self.request(route, params={'start': start, 'end': end})
+
+    async def network_performance(
+        self, app_id: str, start: str, end: str
+    ) -> Response:
+        """
+        Fetch edge and origin latency percentiles for an application.
+
+        :param app_id: The application id.
+        :param start: ISO 8601 start timestamp.
+        :param end: ISO 8601 end timestamp.
+        :return: A Response object.
+        """
+        route: Router = Router(Endpoint.network_performance(), app_id=app_id)
+        return await self.request(route, params={'start': start, 'end': end})
+
+    async def purge_cache(self, app_id: str) -> Response:
+        """
+        Purge the entire edge cache for an application's domains.
+
+        :param app_id: The application id.
+        :return: A Response object.
+        """
+        route: Router = Router(Endpoint.purge_cache(), app_id=app_id)
+        return await self.request(route)
+
+    async def get_all_database_snapshots(self, database_id: str) -> Response:
+        """
+        Fetch all snapshots of a database.
+
+        :param database_id: The database id.
+        :return: A Response object.
+        """
+        route: Router = Router(
+            Endpoint.all_database_snapshots(), database_id=database_id
+        )
+        return await self.request(route)
+
+    async def create_database_snapshot(self, database_id: str) -> Response:
+        """
+        Create a snapshot of a database.
+
+        :param database_id: The database id.
+        :return: A Response object.
+        """
+        route: Router = Router(
+            Endpoint.database_snapshot(), database_id=database_id
+        )
+        return await self.request(route)
+
+    async def realtime(
+        self, app_id: str
+    ) -> AsyncGenerator[dict[str, Any] | str, None]:
+        """
+        Stream realtime status events (SSE) for an application.
+        Max 5 concurrent connections per user; connections live for
+        up to 10 minutes.
+
+        :param app_id: The application id.
+        :return: An async generator yielding decoded events (dict when the
+                 payload is JSON, raw str otherwise).
+        """
+        route: Router = Router(Endpoint.realtime(), app_id=app_id)
+        headers = {
+            'Authorization': self.api_key,
+            'User-Agent': self.USER_AGENT,
+            'Accept': 'text/event-stream',
+        }
+        # total=None so the long-lived (up to 10 min) stream isn't cut by
+        # aiohttp's default 5-min total timeout; sock_read still detects a
+        # dead connection.
+        timeout = aiohttp.ClientTimeout(total=None, sock_read=90)
+        async with self.__session(headers=headers, timeout=timeout) as session:
+            async with session.get(route.url) as resp:
+                if resp.status != 200:
+                    error: type[RequestError] = {
+                        401: AuthenticationFailure,
+                        404: NotFoundError,
+                        429: TooManyRequests,
+                    }.get(resp.status, RequestError)
+                    raise error(
+                        route=route.endpoint.name,
+                        status_code=resp.status,
+                        code='REALTIME_CONNECTION_FAILED',
+                    )
+                async for raw in resp.content:
+                    line = raw.decode('utf-8', errors='replace').strip()
+                    if not line.startswith('data:'):
+                        continue
+                    payload = line[len('data:'):].strip()
+                    try:
+                        yield json.loads(payload)
+                    except ValueError:
+                        yield payload
